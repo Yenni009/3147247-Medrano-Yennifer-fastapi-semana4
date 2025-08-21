@@ -1,0 +1,32 @@
+# Entorno virtual (crucial para aislar dependencias en equipos compartidos)
+venv-personal/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Variables de entorno (pueden contener información sensible)
+.env
+.env.local
+.env.production
+
+# IDE y editores (configuraciones personales)
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Logs y archivos temporales
+*.log
+logs/
+temp/
+tmp/
