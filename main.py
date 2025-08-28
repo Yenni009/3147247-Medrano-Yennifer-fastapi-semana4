@@ -1,123 +1,136 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from typing import List, Dict, Optional
+from fastapi import FastAPI, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+import models, schemas, crud
+from database import SessionLocal, engine, get_db
 
-app = FastAPI(title="My API with Pydantic")
+# Crear tablas
+models.Base.metadata.create_all(bind=engine)
 
-# Tu primer modelo de datos
-class Product(BaseModel):
-    name: str
-    price: int  # en centavos para evitar decimales
-    available: bool = True  # valor por defecto
+app = FastAPI(title="API Productos Mejorada")
 
-# Lista temporal para guardar productos
-products = []
+# CREATE - Crear producto con validaciones
+@app.post("/productos/", response_model=schemas.Producto)
+def crear_producto(producto: schemas.ProductoCreate, db: Session = Depends(get_db)):
+    try:
+        return crud.crear_producto(db=db, producto=producto)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-# Crear la aplicación (lo más simple posible)
-app = FastAPI(title="Mi Primera API")
-
-# Endpoint 1: Hello World (OBLIGATORIO)
-@app.get("/")
-def hello_world() -> dict:
-    return {"message": "¡Mi primera API FastAPI!"}
-
-# Endpoint 2: Info básica (OBLIGATORIO)
-@app.get("/info")
-def info():
-    return {"api": "FastAPI", "week": 1, "status": "running"}
-
-# NUEVO: Endpoint personalizado (solo si hay tiempo)
-@app.get("/greeting/{name}")
-def greet_user(name: str) -> dict:
-    return {"greeting": f"¡Hola {name}"}
-
-@app.get("/my-profile")
-def my_profile():
+# READ - Listar productos con paginación
+@app.get("/productos/")
+def listar_productos(
+    skip: int = Query(0, ge=0, description="Saltar elementos"),
+    limit: int = Query(10, ge=1, le=100, description="Límite de elementos"),
+    db: Session = Depends(get_db)
+):
+    productos = crud.obtener_productos(db, skip=skip, limit=limit)
+    total = crud.contar_productos(db)
     return {
-        "name": "Yennifer Medrano",           # Cambiar por tu nombre
-        "bootcamp": "FastAPI",
-        "week": 1,
-        "date": "2025",
-        "likes_fastapi": True              # ¿Te gustó FastAPI?
+        "productos": productos,
+        "total": total,
+        "pagina": skip // limit + 1,
+        "por_pagina": limit
     }
 
-@app.get("/calculate/{num1}/{num2}")
-def calculate(num1: int, num2: int) -> dict:
-    result = num1 + num2
-    return {"result": result, "operation": "sum"}
-
-# Lista de strings
-@app.get("/fruits")
-def get_fruits() -> List[str]:
-    return ["apple", "banana", "orange"]
-
-# Lista de números
-@app.get("/numbers")
-def get_numbers() -> List[int]:
-    return [1, 2, 3, 4, 5]
-
-# Diccionario con estructura conocida
-@app.get("/user/{user_id}")
-def get_user(user_id: int) -> Dict[str, str]:
+# READ - Buscar productos
+@app.get("/productos/buscar/")
+def buscar_productos(
+    q: str = Query(..., min_length=1, description="Término de búsqueda"),
+    db: Session = Depends(get_db)
+):
+    productos = crud.buscar_productos(db, busqueda=q)
     return {
-        "id": str(user_id),
-        "name": "Demo User",
-        "email": "demo@example.com"
+        "busqueda": q,
+        "productos": productos,
+        "total": len(productos)
     }
 
-@app.post("/products")
-def create_product(product: Product) -> dict:
-    product_dict = product.model_dump()
-    product_dict["id"] = len(products) + 1
-    products.append(product_dict)
-    return {"message": "Product created", "product": product_dict}
+# READ - Obtener producto por ID
+@app.get("/productos/{producto_id}", response_model=schemas.Producto)
+def obtener_producto(producto_id: int, db: Session = Depends(get_db)):
+    producto = crud.obtener_producto(db, producto_id=producto_id)
+    if producto is None:
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+    return producto
 
-@app.get("/products")
-def get_products() -> dict:
-    return {"products": products, "total": len(products)}
+# UPDATE - Actualizar producto parcialmente
+@app.patch("/productos/{producto_id}", response_model=schemas.Producto)
+def actualizar_producto(
+    producto_id: int,
+    producto: schemas.ProductoUpdate,
+    db: Session = Depends(get_db)
+):
+    db_producto = crud.actualizar_producto(db, producto_id=producto_id, producto=producto)
+    if db_producto is None:
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+    return db_producto
 
-# Parámetro de ruta simple
-@app.get("/products/{product_id}")
-def get_product(product_id: int) -> dict:
-    for product in products:
-        if product["id"] == product_id:
-            return {"product": product}
-    return {"error": "Product not found"}
+# DELETE - Eliminar producto
+@app.delete("/productos/{producto_id}")
+def eliminar_producto(producto_id: int, db: Session = Depends(get_db)):
+    producto = crud.eliminar_producto(db, producto_id=producto_id)
+    if producto is None:
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+    return {"mensaje": f"Producto {producto_id} eliminado correctamente"}
 
-# Múltiples parámetros de ruta
-@app.get("/categories/{category}/products/{product_id}")
-def product_by_category(category: str, product_id: int) -> dict:
+# STATS - Estadísticas básicas
+@app.get("/productos/stats/resumen")
+def estadisticas_productos(db: Session = Depends(get_db)):
+    total = crud.contar_productos(db)
+    productos = crud.obtener_productos(db, limit=total)
+
+    if not productos:
+        return {"total": 0, "precio_promedio": 0, "precio_max": 0, "precio_min": 0}
+
+    precios = [p.precio for p in productos]
     return {
-        "category": category,
-        "product_id": product_id,
-        "message": f"Searching product {product_id} in {category}"
+        "total": total,
+        "precio_promedio": sum(precios) / len(precios),
+        "precio_max": max(precios),
+        "precio_min": min(precios)
+        
+    
     }
     
-@app.get("/search")
-def search_products(
-    name: Optional[str] = None,
-    max_price: Optional[int] = None,
-    available: Optional[bool] = None
-) -> dict:
-    results = products.copy()
+    
+    
+    
+# ENDPOINTS PARA CATEGORÍAS
 
-    if name:
-        results = [p for p in results if name.lower() in p["name"].lower()]
-    if max_price:
-        results = [p for p in results if p["price"] <= max_price]
-    if available is not None:
-        results = [p for p in results if p["available"] == available]
+@app.post("/categorias/", response_model=schemas.Categoria)
+def crear_categoria(categoria: schemas.CategoriaCreate, db: Session = Depends(get_db)):
+    return crud.crear_categoria(db=db, categoria=categoria)
 
-    return {"results": results, "total": len(results)}
+@app.get("/categorias/")
+def listar_categorias(db: Session = Depends(get_db)):
+    return crud.obtener_categorias(db)
 
-class ProductResponse(BaseModel):
-    id: int
-    name: str
-    price: int
-    available: bool
-    message: str = "Product retrieved successfully"
+@app.get("/categorias/{categoria_id}", response_model=schemas.CategoriaConProductos)
+def obtener_categoria(categoria_id: int, db: Session = Depends(get_db)):
+    categoria = crud.obtener_categoria_con_productos(db, categoria_id=categoria_id)
+    if categoria is None:
+        raise HTTPException(status_code=404, detail="Categoría no encontrada")
+    return categoria
 
-class ProductListResponse(BaseModel):
-    products: list
-    total: int
-    message: str = "List retrieved successfully"
+# ENDPOINTS ACTUALIZADOS PARA PRODUCTOS
+
+@app.get("/productos/", response_model=List[schemas.ProductoConCategoria])
+def listar_productos_con_categoria(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    return crud.obtener_productos_con_categoria(db, skip=skip, limit=limit)
+
+@app.get("/categorias/{categoria_id}/productos/")
+def productos_por_categoria(categoria_id: int, db: Session = Depends(get_db)):
+    productos = crud.obtener_productos_por_categoria(db, categoria_id=categoria_id)
+    return {
+        "categoria_id": categoria_id,
+        "productos": productos,
+        "total": len(productos)
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
