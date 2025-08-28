@@ -64,12 +64,8 @@ uvicorn main:app --reload --port 8000
 - Si Git no funciona: verificar `git config user.name` y `git config user.email`
 - Si necesitas cambiar el email: usar el email privado de GitHub desde Settings → Emails
 
-<<<<<<< HEAD
 
 ## 📝 Reflexión (Solo 1 pregunta)
-=======
-- ## 📝 Reflexión (Solo 1 pregunta)
->>>>>>> 24762dfc16921805ce4bf25ea21c46f4bab0c7c4
 ¿Los type hints hacen tu código más claro? ¿Por qué?
 
 -Si porque ayuda a las persona que lo este leyendo y tambien a distintas herramientas como editores a saber que tipo de dato se espera y que tipo va a devolver una funcion.
@@ -87,9 +83,4 @@ Semana 1: API básica con Hello World Semana 2: API con validación y type hints
 ## Reflexión
 
 -Lo mas util de esta semana fue los diversos conceptos que aprendi como los Type hints y la validacion automatica estos temas son muy interesantes y practicos.
-<<<<<<< HEAD
 -Tambien me fue util aprender sobre los distintos Endponits que hay y a su vez ver como funcionan en un entorno mas real.
-=======
--Tambien me fue util aprender sobre los distintos Endponits que hay y a su vez ver como funcionan en un entorno mas real.
-
->>>>>>> 24762dfc16921805ce4bf25ea21c46f4bab0c7c4
